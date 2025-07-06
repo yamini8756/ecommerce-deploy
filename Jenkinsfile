@@ -1,10 +1,5 @@
 pipeline {
-    agent {
-        docker {
-            image 'maven:3.9-eclipse-temurin-17'  // base image with Maven + Java 17
-            args '-v /var/run/docker.sock:/var/run/docker.sock'  // allow Docker inside Docker
-        }
-    }
+    agent any
 
     environment {
         DOCKER_HUB_CREDENTIALS = '8179958869'
@@ -21,14 +16,6 @@ pipeline {
     }
 
     stages {
-        stage('Install Node for Frontend') {
-            steps {
-                sh 'apt-get update && apt-get install -y curl'
-                sh 'curl -fsSL https://deb.nodesource.com/setup_18.x | bash -'
-                sh 'apt-get install -y nodejs'
-            }
-        }
-
         stage('Clone Backend') {
             steps {
                 dir('backend') {
@@ -48,7 +35,7 @@ pipeline {
         stage('Build Backend') {
             steps {
                 dir('backend') {
-                    sh './mvnw clean package -DskipTests'
+                    bat 'mvnw.cmd clean package -DskipTests'
                 }
             }
         }
@@ -56,8 +43,8 @@ pipeline {
         stage('Build Frontend') {
             steps {
                 dir('frontend') {
-                    sh 'npm install'
-                    sh 'npm run build'
+                    bat 'npm install'
+                    bat 'npm run build'
                 }
             }
         }
@@ -65,13 +52,13 @@ pipeline {
         stage('Docker Build & Push') {
             steps {
                 withCredentials([usernamePassword(credentialsId: "${DOCKER_HUB_CREDENTIALS}", usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
-                    sh 'echo $PASSWORD | docker login -u $USERNAME --password-stdin'
+                    bat 'echo %PASSWORD% | docker login -u %USERNAME% --password-stdin'
 
-                    sh 'docker build -t $BACKEND_IMAGE backend'
-                    sh 'docker push $BACKEND_IMAGE'
+                    bat "docker build -t %BACKEND_IMAGE% backend"
+                    bat "docker push %BACKEND_IMAGE%"
 
-                    sh 'docker build -t $FRONTEND_IMAGE frontend'
-                    sh 'docker push $FRONTEND_IMAGE'
+                    bat "docker build -t %FRONTEND_IMAGE% frontend"
+                    bat "docker push %FRONTEND_IMAGE%"
                 }
             }
         }
@@ -80,9 +67,9 @@ pipeline {
             steps {
                 withCredentials([file(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'KUBECONFIG_FILE')]) {
                     withEnv(["KUBECONFIG=$KUBECONFIG_FILE"]) {
-                        sh 'kubectl apply -f k8s/mysql.yaml'
-                        sh 'kubectl apply -f k8s/backend.yaml'
-                        sh 'kubectl apply -f k8s/frontend.yaml'
+                        bat 'kubectl apply -f k8s/mysql.yaml'
+                        bat 'kubectl apply -f k8s/backend.yaml'
+                        bat 'kubectl apply -f k8s/frontend.yaml'
                     }
                 }
             }
@@ -91,7 +78,7 @@ pipeline {
 
     post {
         always {
-            sh 'docker logout || true'
+            bat 'docker logout || exit 0'
         }
     }
 }
