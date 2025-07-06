@@ -1,5 +1,10 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'maven:3.9-eclipse-temurin-17'  // base image with Maven + Java 17
+            args '-v /var/run/docker.sock:/var/run/docker.sock'  // allow Docker inside Docker
+        }
+    }
 
     environment {
         DOCKER_HUB_CREDENTIALS = '8179958869'
@@ -16,6 +21,14 @@ pipeline {
     }
 
     stages {
+        stage('Install Node for Frontend') {
+            steps {
+                sh 'apt-get update && apt-get install -y curl'
+                sh 'curl -fsSL https://deb.nodesource.com/setup_18.x | bash -'
+                sh 'apt-get install -y nodejs'
+            }
+        }
+
         stage('Clone Backend') {
             steps {
                 dir('backend') {
@@ -78,7 +91,7 @@ pipeline {
 
     post {
         always {
-            sh 'docker logout'
+            sh 'docker logout || true'
         }
     }
 }
